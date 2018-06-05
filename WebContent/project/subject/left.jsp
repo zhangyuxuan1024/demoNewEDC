@@ -134,7 +134,7 @@
 					<b class="arrow"></b>
 				</li>
 				<li class="">
-					<a href='<%=basePath%>/project/subject/business/404_3.jsp' target="_blank">
+					<a href='<%=basePath%>/project/subject/business/404(3).jsp' target="_blank">
 						<i class="menu-icon fa fa-caret-right"></i>
 						404(3)
 					</a>
@@ -155,7 +155,7 @@
 					<b class="arrow"></b>
 				</li>
 				<li class="">
-					<a href='<%=basePath%>/project/subject/business/500_3.jsp' target="_blank">
+					<a href='<%=basePath%>/project/subject/business/500(3).jsp' target="_blank">
 						<i class="menu-icon fa fa-caret-right"></i>
 						500(3)
 					</a>
