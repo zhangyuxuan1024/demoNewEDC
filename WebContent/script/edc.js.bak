@@ -1,0 +1,267 @@
+//初始化组件 
+function initComponent(specs){
+	for(var o in specs){
+		var spec=specs[o];
+		$("[id='"+spec.variableName+"']").attr("name",spec.variableName); 
+		if(spec.controlType=='dropdown'){
+			var options=spec.dataFormat.split(';');
+			$("[id='"+spec.variableName+"']").append("<option value=''></option>");
+			for(var i in options){
+				var option=options[i];
+				var value_text=option.split('=');
+				$("[id='"+spec.variableName+"']").append("<option value='"+value_text[0]+"'>"+value_text[1]+"</option>");
+			}
+		}
+		else if(spec.controlType=='number'){
+			$("[id='"+spec.variableName+"']").attr("maxlength",spec.dataFormat);  
+		}
+		else if(spec.controlType=='date'){
+			$("[id='"+spec.variableName+"']").attr("maxlength",spec.dataFormat.length); 
+			$("[id='"+spec.variableName+"']").after('<div class="help-block inline" style="font-size:13px">'+spec.dataFormat+'</div>');   
+		}
+		else if(spec.controlType=='text'){
+			$("[id='"+spec.variableName+"']").attr("maxlength",spec.dataFormat);  
+		}
+		else{
+			alert(spec.variableName+"-"+spec.controlType+':类型初始化错误');
+		}
+	}
+}
+//初始化数据
+function initInformation(trialDatabases){
+	//var trialDatabases=parse(trialDatabases);
+	for(var o in trialDatabases){
+		var trialDatabase=trialDatabases[o];
+		$("[id='"+trialDatabase.variableName+"']").val(trialDatabase.variableValue);   
+	}
+}
+
+//增加录入控制规则
+function initSwitchRule(specs){
+	for(var o in specs){
+		var spec=specs[o];
+		if(spec.switchRule!=null){
+			var rule=spec.switchRule.split(';');
+			var value=rule[0];
+			var variables=rule[1];
+			var variableName=spec.variableName;
+			$("[id='"+variableName+"']").on("change",{"variableName":variableName,"value":value,"variables":variables},function(event){doSwitchRule(event.data.variableName,event.data.value,event.data.variables);});
+			//alert(variableName+"->"+value+"->"+variables+":"+spec.variableName);
+			//初始化录入控制
+			$("[id='"+variableName+"']").change();
+		}
+	}
+}
+//录入控制
+function doSwitchRule(variableName,value,variables){
+	//alert(variableName+"->"+value+"->"+variables);
+	if($("[id='"+variableName+"']").val()!=value){
+		var variableNames=variables.split(',');
+		for(var o in variableNames){
+			$("[id='"+variableNames[o]+"']").val('').attr("disabled","disabled");
+			if($("[id='"+variableNames[o]+"']").is('select')){
+				$("[id='"+variableNames[o]+"']").change();
+			}
+		}
+	}
+	else{
+		var variableNames=variables.split(',');
+		for(var o in variableNames){
+			$("[id='"+variableNames[o]+"']").removeAttr('disabled');
+		}
+	}
+}
+//定义疑问
+function query(obj){
+	this.subjectId=obj.subjectId;
+	this.pageName=obj.pageName;
+	this.variableName=obj.variableName;
+	this.variableValue=obj.variableValue;
+	this.source=obj.source;
+	this.message=obj.message;
+	this.queryStatus=obj.queryStatus;
+}
+
+//增加逻辑验证规则
+function initQueryRule(specs){
+	for(var o in specs){
+		var spec=specs[o];
+		if(spec.required=='Y' || spec.required=='D'){
+			var controlType=spec.controlType;
+			var required=spec.required;
+			var queryRule=spec.queryRule;
+			var variableName=spec.variableName;
+			var minValue=spec.minValue;
+			var maxValue=spec.maxValue;
+			$("[id='"+variableName+"']").on("blur",
+					{"controlType":controlType,"variableName":variableName,"required":required,"queryRule":queryRule,"minValue":minValue,"maxValue":maxValue},
+					function(event){doQueryRule(event.data.controlType,event.data.variableName,event.data.required,event.data.queryRule,event.data.minValue,event.data.maxValue);});
+			//初始化逻辑验证
+			$("[id='"+variableName+"']").blur();
+		}
+	}
+}
+//逻辑验证
+function doQueryRule(controlType,variableName,required,queryRule,minValue,maxValue){
+	var params=$("#information").serialize();
+	var subject=serializeToJSON(params);
+	var query=null;
+	//不同类型有不同的函数
+	if(controlType=='dropdown'){
+		if(required=='Y'){
+			query=valueIsRequired(subject,variableName);
+		}
+		else{
+			if(eval(queryRule)){
+				query=valueIsRequired(subject,variableName);
+			}
+		}
+	}
+	if(controlType=='number'){
+		if(required=='Y'){
+			query=valueIsBetween2Values(subject,variableName,minValue,maxValue);
+		}
+		else{
+			if(eval(queryRule)){
+				query=valueIsBetween2Values(subject,variableName,minValue,maxValue);
+			}
+		}
+	}
+	if(query!=null){
+		highlightErrField(query);
+	}
+	else{
+		undoHighlightErrField(variableName);
+	}
+	return query;
+}
+
+//制作Query
+function generateQuery(subjectId,pageName,specs){
+	var key=new Array();
+	var normal=new Array();
+	for(var o in specs){
+		var spec=specs[o];
+		if(spec.required=='Y' || spec.required=='D'){
+			var controlType=spec.controlType;
+			var required=spec.required;
+			var queryRule=spec.queryRule;
+			var variableName=spec.variableName;
+			var minValue=spec.minValue;
+			var maxValue=spec.maxValue;
+			var query=doQueryRule(controlType,variableName,required,queryRule,minValue,maxValue);
+			if(query!=null){
+				query.subjectId=subjectId;
+				query.pageName=pageName;
+				if(controlType=='dropdown'){
+					key.push(query);
+				}
+				else if(controlType=='number' && query.variableValue==''){
+					key.push(query);
+				}
+				else{
+					normal.push(query);
+				}
+			}
+		}
+	}
+	return {'key':key,'normal':normal};
+}
+
+
+//重新定义Query
+function initQueryRule_update(specs){
+	var rules=new Array();
+	for(var o in specs){
+		var spec=specs[o];
+		var condition="",validation="";
+		var controlType=spec.controlType;
+		var required=spec.required;
+		var queryRule=spec.queryRule;
+		var variableName=spec.variableName;
+		var minValue=spec.minValue;
+		var maxValue=spec.maxValue;
+		
+		if(required=='Y'){
+			condition="true";
+			validation=queryRule;
+		}
+		else if(required=='D'){
+			var rule=queryRule.split(';');
+			condition=rule[0];
+			validation=rule[1];
+		}
+		else{
+			continue;
+		}
+		//处理condition
+		var flag=true;
+		while(condition.indexOf('#')!=-1){
+			alert(123);
+			if(flag){
+				condition=condition.replace('#','subject["');
+			}
+			else{
+				condition=condition.replace('#','"]');
+			}
+			flag=!flag;
+		}
+		//处理validation
+		if(validation=="[]"){
+			
+		}
+		else if(validation=="(]"){
+			
+		}
+		else if(validation=="[)"){
+					
+		}
+		else if(validation=="()"){
+			
+		}
+		else if(validation=="{}"){
+			
+		}
+		else{ 
+			
+		}
+		var rule=new Object();
+		rule.id=variableName;
+		rule.fn="if("+condition+")then xxx";
+		rules.push(rule);
+	}
+	return rules;
+}
+
+//保存数据
+function saveInformation(basePath,formId){
+	var params=$("#"+formId).serialize();
+	var result=ajaxTo(basePath+'/crfManagement/save',params); 
+	parse(result);
+	invokeJSP("sidebar", basePath+"/invoke?url=site/crf/_left");
+}
+//关闭
+function closeHelpBar(){
+	$('#helpBar').css('display','none');
+}
+function valueIsRequired(subject,variableName){
+	var value=subject[variableName];
+	if($.trim(value)==""){
+		return new query({"variableName":variableName,"variableValue":value,"source":"system","message":"不能为空","queryStatus":"system"});
+	}
+}
+function valueIsBetween2Values(subject,variableName,minValue,maxValue){
+	var value=subject[variableName];
+	if(isNaN(value)){
+		return new query({"variableName":variableName,"variableValue":value,"source":"system","message":"请输入正确的数值","queryStatus":"system"});
+	}
+	if(Number(value)<minValue || Number(value)>maxValue){
+		return new query({"variableName":variableName,"variableValue":value,"source":"system","message":"数值不在正常值范围"+minValue+" - "+maxValue+"内","queryStatus":"system"});
+	}
+}
+function highlightErrField(query){
+	$("[id='"+query.variableName+"']").css('border','1px solid red').attr('title',query.message);
+}
+function undoHighlightErrField(variableName){
+	$("[id='"+variableName+"']").css('border','1px solid #d5d5d5').removeAttr('title');
+}
